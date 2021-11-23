@@ -25,4 +25,13 @@ public class Human {
         this.job = job;
     }
 
+    @Override
+    public String toString() {
+        return "Human{" +
+                "humanID=" + humanID +
+                ", name='" + name + '\'' +
+                ", age=" + age +
+                ", job='" + job + '\'' +
+                '}';
+    }
 }

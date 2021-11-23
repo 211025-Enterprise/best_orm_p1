@@ -120,31 +120,45 @@ public class genericDAO<T> {
 
     /**
      * method to get only certain rows that have the matching pk value
-     * @param tObj the object of the class/table name that we want to read from
+     * @param clazz the class/table name that we want to read from
      * @return object with the matching pk value
      */
-    public T getByPK(T tObj, String pk, Connection connection){
-        String tableName = tObj.getClass().getSimpleName().toLowerCase();
+    public List<T> getByPK(Class<T> clazz, String pk, Connection connection){
+        String tableName = clazz.getSimpleName().toLowerCase();
         StringBuilder gbp = new StringBuilder();
-        gbp.append("select * from ").append(tableName).append(" where");
-        Field[] fields = tObj.getClass().getDeclaredFields();
+        List<T> pkRow = new ArrayList<>();
+        T obj = null;
+        gbp.append("select * from ").append(tableName).append(" where ");
+        Field[] fields = clazz.getDeclaredFields();
         for (Field field : fields){
-            if (field.isAnnotationPresent(PKey.class)){gbp.append(field.getName());}
-
+            if (field.isAnnotationPresent(PKey.class)){
+                gbp.append(field.getName());
+            }
         }
         gbp.append(" = ").append(pk);
+//        System.out.println(gbp);
         try(PreparedStatement stmt = connection.prepareStatement(gbp.toString())){
             ResultSet rs = stmt.executeQuery();
             if (rs.next()){
+                Constructor<?> constructor = Arrays.stream(clazz.getDeclaredConstructors()).filter(cons -> cons.getParameterCount() == 0).findFirst().orElse(null);
+                constructor.setAccessible(true);
+                obj = (T) constructor.newInstance();
+                int index = 1;
                 for (Field field:fields){
                     field.setAccessible(true);
-                    field.set(tObj,rs.getObject(1));
+//                    System.out.println(field.getName());
+//                    System.out.println(rs.getObject(index));
+                    field.set(obj,rs.getObject(index++));
+//                    System.out.println(obj);
                 }
+                pkRow.add(obj);
             }
         } catch (SQLException | IllegalAccessException e) {
             e.printStackTrace();
+        } catch (InvocationTargetException | InstantiationException e) {
+            e.printStackTrace();
         }
-        return tObj;
+        return pkRow;
     }
 //    UPDATE
 
@@ -234,7 +248,7 @@ public class genericDAO<T> {
             String name = field.getName().toLowerCase();
             delQuery.append(name).append(" =?");
         }
-        String deleteQuery = "delete from " + tableName + " where " + delQuery.toString();
+        String deleteQuery = "delete from " + tableName + " where " + delQuery;
         try(PreparedStatement stmt = connection.prepareStatement(deleteQuery)){
             stmt.executeUpdate();
         } catch (SQLException e) {
