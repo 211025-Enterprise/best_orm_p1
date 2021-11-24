@@ -210,9 +210,11 @@ public class genericDAO<T> {
             int index = 1;
             for (Object tObj : newValues){
                 stmt.setObject(index, tObj);
+                //System.out.println(stmt);
                 index ++;
             }
             for (Object tObj : values){
+                //System.out.println(stmt);
                 stmt.setObject(index, tObj);
                 index++;
             }
@@ -222,6 +224,30 @@ public class genericDAO<T> {
             throwables.printStackTrace();
             return false;
         }
+    }
+    public T update(T tObj, Connection connection) throws IllegalAccessException {
+        String tableName = tObj.getClass().getSimpleName().toLowerCase();
+        StringBuilder query =  new StringBuilder();
+        String pkField = null;
+        query.append("insert into ").append(tableName).append(" set ");
+        Field[] fields = tObj.getClass().getDeclaredFields();
+        for (Field field : fields){
+            if (field.isAnnotationPresent(PKey.class)) {
+                pkField = field.getName();
+            }
+            else {
+                query.append(field.getName()).append("=?");
+                query.append(",");
+            }
+        }
+        query.deleteCharAt(query.length() - 1);
+        query.append(" where ").append(pkField).append(" =?");
+        try (PreparedStatement stmt = connection.prepareStatement(query.toString())) {
+            return stmt.executeUpdate() != 0? tObj : null;
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+        return null;
     }
 //    DELETE
 
@@ -250,12 +276,15 @@ public class genericDAO<T> {
         }
         String deleteQuery = "delete from " + tableName + " where " + delQuery;
         try(PreparedStatement stmt = connection.prepareStatement(deleteQuery)){
-            stmt.executeUpdate();
+            int index = 1;
+            for (Object o : values){
+                stmt.setObject(index++, o);
+            }
+            return stmt.executeUpdate() >= 0? true:false;
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
         }
-        return true;
     }
 //    service method
     public String javaToSqlType(Type type){
