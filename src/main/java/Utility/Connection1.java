@@ -9,7 +9,7 @@ import java.util.Properties;
 
 public class Connection1 {
     private static Properties properties;
-    private static final String propPath = "src/main/resources/app.properties";
+    private static final String propPath = "C:\\Users\\levan\\Documents\\Project1_ORM\\src\\main\\resources\\app.properties";
 //  load the app.properties file from resources to read in the url, username and password of the dabatase
     private static void loadProperties(){
         properties = new Properties();

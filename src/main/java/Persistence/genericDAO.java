@@ -2,6 +2,7 @@ package Persistence;
 import Annotations.NoNull;
 import Annotations.PKey;
 import Annotations.Unique;
+import Utility.Connection1;
 
 import java.lang.reflect.*;
 import java.util.*;
@@ -20,7 +21,7 @@ public class genericDAO<T> {
      * @return number of rows that were edited
      */
 
-    public T create(Class<T> clazz, T tObj, Connection connection) throws SQLException {
+    public T create(Class<T> clazz, T tObj) throws SQLException {
         String tableName = clazz.getSimpleName();
         tableName = tableName.toLowerCase();
         Field[] fields = clazz.getDeclaredFields();
@@ -63,7 +64,9 @@ public class genericDAO<T> {
         String create = table.toString();
         String ins = "insert into " + tableName + " (" + col + ")" + " values(" + values + ")";
 //        System.out.println(table + " \n "+ ins);
-        try (PreparedStatement stmt1 = connection.prepareStatement(create); PreparedStatement stmt2 = connection.prepareStatement(ins)){
+        try (Connection connection = Connection1.getConnection()) {
+            PreparedStatement stmt1 = connection.prepareStatement(create);
+            PreparedStatement stmt2 = connection.prepareStatement(ins);
             stmt1.executeUpdate();
             int index = 1;
             for (Field field:fields){
@@ -86,13 +89,14 @@ public class genericDAO<T> {
      * @param clazz the class we want to read all the objects from
      * @return list of objects
      */
-    public List<T> getAll(Class<T> clazz, Connection connection){
+    public List<T> getAll(Class<T> clazz){
         List<T> objList = new ArrayList<>();
         String tableName = clazz.getSimpleName().toLowerCase();
         StringBuilder reader = new StringBuilder();
         Field[] fields = clazz.getDeclaredFields();
         reader.append("select * from ").append(tableName).append(";");
-        try(PreparedStatement stmt = connection.prepareStatement(reader.toString())) {
+        try(Connection connection = Connection1.getConnection()){
+            PreparedStatement stmt = connection.prepareStatement(reader.toString());
             ResultSet rs = stmt.executeQuery();
             while(rs.next()){
 //                find default constructor from declared constructors and initiate an object
@@ -123,7 +127,7 @@ public class genericDAO<T> {
      * @param clazz the class/table name that we want to read from
      * @return object with the matching pk value
      */
-    public List<T> getByPK(Class<T> clazz, String pk, Connection connection){
+    public List<T> getByPK(Class<T> clazz, String pk){
         String tableName = clazz.getSimpleName().toLowerCase();
         StringBuilder gbp = new StringBuilder();
         List<T> pkRow = new ArrayList<>();
@@ -137,7 +141,8 @@ public class genericDAO<T> {
         }
         gbp.append(" = ").append(pk);
 //        System.out.println(gbp);
-        try(PreparedStatement stmt = connection.prepareStatement(gbp.toString())){
+        try(Connection connection = Connection1.getConnection()){
+            PreparedStatement stmt = connection.prepareStatement(gbp.toString());
             ResultSet rs = stmt.executeQuery();
             if (rs.next()){
                 Constructor<?> constructor = Arrays.stream(clazz.getDeclaredConstructors()).filter(cons -> cons.getParameterCount() == 0).findFirst().orElse(null);
@@ -169,11 +174,9 @@ public class genericDAO<T> {
      * @param columns columns for the values we want to update
      * @param newValues values that we want to update old values to
      * @param newValueColumns columns that correspond to the new values
-     * @param connection connection to the database to execute the sql queries here
      * @return boolean true if a row was updated or false if not
      */
-    public boolean update(Class<T> clazz, Object[] values, Field[] columns, Object[] newValues, Field[] newValueColumns,
-                          Connection connection){
+    public boolean update(Class<T> clazz, Object[] values, Field[] columns, Object[] newValues, Field[] newValueColumns){
         String tableName = clazz.getSimpleName().toLowerCase();
 //        String builders to build the queries to be executed
         StringBuilder upQuery = new StringBuilder();
@@ -206,7 +209,8 @@ public class genericDAO<T> {
         }
 //      sql query string
         String sql = "update "+tableName+" set "+cols+" = "+vals+" where "+upQuery.toString();
-        try(PreparedStatement stmt = connection.prepareStatement(sql)){
+        try(Connection connection = Connection1.getConnection()){
+            PreparedStatement stmt = connection.prepareStatement(sql);
             int index = 1;
             for (Object tObj : newValues){
                 stmt.setObject(index, tObj);
