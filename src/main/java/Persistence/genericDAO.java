@@ -229,6 +229,7 @@ public class genericDAO<T> {
             return false;
         }
     }
+//    dont work, dont use
     public T update(T tObj, Connection connection) throws IllegalAccessException {
         String tableName = tObj.getClass().getSimpleName().toLowerCase();
         StringBuilder query =  new StringBuilder();
@@ -260,10 +261,9 @@ public class genericDAO<T> {
      * @param clazz class we want to delete values from
      * @param values rows we want to delete
      * @param fieldNames column names that correspond to the values
-     * @param connection get connection and execute query
      * @return boolean, true if deleted, false if not
      */
-    public boolean delete(Class<?> clazz,Object[] values, Field[] fieldNames, Connection connection){
+    public boolean delete(Class<?> clazz,Object[] values, Field[] fieldNames){
         boolean retValue = false;
         if (values.length != fieldNames.length){
             System.out.println("no can do");
@@ -279,7 +279,8 @@ public class genericDAO<T> {
             delQuery.append(name).append(" =?");
         }
         String deleteQuery = "delete from " + tableName + " where " + delQuery;
-        try(PreparedStatement stmt = connection.prepareStatement(deleteQuery)){
+        try(Connection connection = Connection1.getConnection()){
+            PreparedStatement stmt = connection.prepareStatement(deleteQuery);
             int index = 1;
             for (Object o : values){
                 stmt.setObject(index++, o);
