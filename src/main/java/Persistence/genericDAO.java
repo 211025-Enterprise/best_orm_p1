@@ -127,7 +127,7 @@ public class genericDAO<T> {
      * @param clazz the class/table name that we want to read from
      * @return object with the matching pk value
      */
-    public List<T> getByPK(Class<T> clazz, String pk){
+    public Object getByPK(Class<T> clazz, String pk){
         String tableName = clazz.getSimpleName().toLowerCase();
         StringBuilder gbp = new StringBuilder();
         List<T> pkRow = new ArrayList<>();
@@ -156,14 +156,14 @@ public class genericDAO<T> {
                     field.set(obj,rs.getObject(index++));
 //                    System.out.println(obj);
                 }
-                pkRow.add(obj);
+                return obj;
             }
         } catch (SQLException | IllegalAccessException e) {
             e.printStackTrace();
         } catch (InvocationTargetException | InstantiationException e) {
             e.printStackTrace();
         }
-        return pkRow;
+        return obj;
     }
 //    UPDATE
 
@@ -230,29 +230,54 @@ public class genericDAO<T> {
         }
     }
 //    dont work, dont use
-    public T update(T tObj, Connection connection) throws IllegalAccessException {
-        String tableName = tObj.getClass().getSimpleName().toLowerCase();
+    public boolean update(Object obj) throws IllegalAccessException {
+        String tableName = obj.getClass().getSimpleName().toLowerCase();
         StringBuilder query =  new StringBuilder();
-        String pkField = null;
-        query.append("insert into ").append(tableName).append(" set ");
-        Field[] fields = tObj.getClass().getDeclaredFields();
+        Field pk = null;
+        Field[] fields = obj.getClass().getDeclaredFields();
+        List<String> colList = new ArrayList<>();
+        // put all the field names in column list and if its a primary key field also save it in Field pk
         for (Field field : fields){
             if (field.isAnnotationPresent(PKey.class)) {
-                pkField = field.getName();
+                pk = field;
             }
             else {
-                query.append(field.getName()).append("=?");
-                query.append(",");
+                colList.add(field.getName());
             }
         }
-        query.deleteCharAt(query.length() - 1);
-        query.append(" where ").append(pkField).append(" =?");
-        try (PreparedStatement stmt = connection.prepareStatement(query.toString())) {
-            return stmt.executeUpdate() != 0? tObj : null;
-        } catch (SQLException throwables) {
+
+        query.append("update ").append(tableName).append(" set ");
+        query.append(colList.get(0)).append("=?");
+//        so far query = update tablename set col1 = ?
+        for (int i=1;i<colList.size();i++){
+            query.append(",").append(colList.get(i)).append("=?");
+        }
+
+//        query = update tablename set col1 =?, col2=?,col3.... for each column
+        query.append(" where ").append(pk.getName()).append("=?");
+        System.out.println(query.toString());
+        Field field;
+        try(Connection connection = Connection1.getConnection()){
+            PreparedStatement stmt = connection.prepareStatement(query.toString());
+            for (int j=0;j<colList.size();j++){
+                field = obj.getClass().getDeclaredField(colList.get(j));
+                System.out.println(field.getName());
+                field.setAccessible(true);
+                System.out.println(field.get(obj));
+                stmt.setObject(j+1,field.get(obj));
+                System.out.println(stmt);
+            }
+            field = obj.getClass().getDeclaredField(pk.getName());
+            field.setAccessible(true);
+            stmt.setObject(colList.size()+1, field.get(obj));
+            System.out.println(stmt);
+            stmt.execute();
+            return true;
+        } catch (SQLException | NoSuchFieldException throwables) {
             throwables.printStackTrace();
         }
-        return null;
+        // if a row hasnt been updated
+        return false;
     }
 //    DELETE
 
@@ -290,6 +315,37 @@ public class genericDAO<T> {
             e.printStackTrace();
             return false;
         }
+    }
+    public boolean delete(Object o) throws NoSuchFieldException {
+        boolean res = false;
+        String tableName = o.getClass().getSimpleName().toLowerCase();
+        StringBuilder delQuery = new StringBuilder();
+        delQuery.append("delete from ").append(tableName);
+        List<String> colList = new ArrayList<>();
+        Field[] fields = o.getClass().getDeclaredFields();
+        Field pk = null;
+        Field f = null;
+        for (Field field : fields){
+            if (field.isAnnotationPresent(PKey.class)) {
+                pk = field;
+            }
+            colList.add(field.getName());
+        }
+        delQuery.append(" where ").append(pk.getName()).append(" = ?");
+        try(Connection connection = Connection1.getConnection()){
+            PreparedStatement stmt = connection.prepareStatement(delQuery.toString());
+            f = o.getClass().getDeclaredField(pk.getName());
+            f.setAccessible(true);
+            stmt.setObject(1, f.get(o));
+            System.out.println(stmt);
+            stmt.executeUpdate();
+            res = true;
+            return res;
+        } catch (SQLException | IllegalAccessException throwables) {
+            throwables.printStackTrace();
+        }
+        return false;
+
     }
 //    service method
     public String javaToSqlType(Type type){

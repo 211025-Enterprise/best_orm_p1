@@ -8,13 +8,13 @@ import Annotations.Unique;
 
 public class Human {
     @PKey
-    private int humanID;
+    public int humanID;
     @Unique
-    private String name;
+    public String name;
     @NoNull
-    private int age;
+    public int age;
     @NoNull
-    private String job;
+    public String job;
     public Human(){
 
     }
